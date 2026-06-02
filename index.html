@@ -64,7 +64,7 @@
             background: var(--bg-color);
             color: var(--text-color);
             width: 100%;
-            font-size: 16px; /* 16px is cruciaal voor iOS: voorkomt automatisch inzoomen */
+            font-size: 16px; 
             box-sizing: border-box;
         }
 
@@ -76,7 +76,7 @@
             color: white;
             font-weight: bold;
             cursor: pointer;
-            touch-action: manipulation; /* Voorkomt 300ms delay op touch screens */
+            touch-action: manipulation;
             font-size: 15px;
         }
 
@@ -179,10 +179,27 @@
             word-break: break-word;
         }
 
-        .modal-row input {
-            flex: 1;
-            max-width: 150px;
+        .score-input-wrapper {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .score-input-wrapper input {
+            width: 90px;
             text-align: right;
+        }
+
+        .btn-minus {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 45px;
+            height: 45px; 
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
         }
 
         .toggle-btn {
@@ -251,11 +268,9 @@
     let gameActive = false;
 
     function init() {
-        // Herstel dark/light mode
         const savedTheme = localStorage.getItem('duizenden_theme');
         if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
 
-        // Herstel speldata
         const savedData = localStorage.getItem('duizenden_data');
         if (savedData) {
             try {
@@ -271,7 +286,7 @@
                     }
                 }
             } catch (e) {
-                console.error("Fout bij laden lokale data", e);
+                console.error("Fout bij laden", e);
             }
         }
         if (!gameActive) renderSetup();
@@ -282,14 +297,18 @@
         const container = document.getElementById('playerInputs');
         container.innerHTML = '';
         players.forEach((p, index) => {
+            const defaultName = `Speler ${index + 1}`;
             container.innerHTML += `
                 <div class="setup-row">
-                    <input type="text" value="${p.name}" onchange="updateName(${index}, this.value)" placeholder="Naam speler ${index+1}">
+                    <input type="text" value="${p.name}" 
+                           onfocus="if(this.value === '${defaultName}') this.value = '';"
+                           onblur="if(this.value.trim() === '') { this.value = '${defaultName}'; updateName(${index}, this.value); }"
+                           onchange="updateName(${index}, this.value)" 
+                           placeholder="${defaultName}">
                     ${players.length > 2 ? `<button class="danger" style="padding:10px 12px;" onclick="removePlayer(${index})">✕</button>` : ''}
                 </div>
             `;
         });
-        // Maximaal 6 spelers
         document.getElementById('addPlayerBtn').style.display = players.length >= 6 ? 'none' : 'block';
     }
 
@@ -347,22 +366,37 @@
     // --- SCORE INVOER ---
     function showScoreModal() {
         const container = document.getElementById('modalInputs');
-        // Let op: type="number" zonder inputmode="numeric" wordt gebruikt 
-        // zodat iOS het toetsenbord met het min-teken (-) toont.
+        
         container.innerHTML = players.map((p, i) => `
             <div class="modal-row">
                 <label for="input_score_${i}">${p.name}</label>
-                <input type="number" id="input_score_${i}" placeholder="0">
+                <div class="score-input-wrapper">
+                    <button type="button" class="btn-minus" onclick="toggleMinus('input_score_${i}')">+/-</button>
+                    <input type="number" inputmode="numeric" pattern="[0-9]*" id="input_score_${i}" placeholder="0">
+                </div>
             </div>
         `).join('');
         
+        // Fix: Forceer velden leeg om te voorkomen dat Safari oude getallen onthoudt
+        players.forEach((p, i) => {
+            const input = document.getElementById(`input_score_${i}`);
+            if(input) input.value = ''; 
+        });
+
         document.getElementById('scoreModal').style.display = 'flex';
         
-        // Focus zachtjes de eerste input (handig op sommige mobiele browsers)
         setTimeout(() => {
             const firstInput = document.getElementById('input_score_0');
             if(firstInput) firstInput.focus();
         }, 100);
+    }
+
+    function toggleMinus(id) {
+        const input = document.getElementById(id);
+        let val = parseInt(input.value, 10);
+        if (!isNaN(val)) {
+            input.value = val * -1; // Keer het getal om
+        }
     }
 
     function closeModal() {
@@ -392,11 +426,8 @@
         const banner = document.getElementById('winnerDisplay');
 
         if (winners.length > 0) {
-            // Sorteer van hoogste naar laagste score
             winners.sort((a, b) => b.total - a.total);
             const highscore = winners[0].total;
-            
-            // Vind alle spelers die EXACT de highscore delen (bij gelijke stand boven de 1000)
             const ultimateWinners = winners.filter(w => w.total === highscore);
             
             banner.style.display = 'block';
@@ -457,13 +488,11 @@
             } catch (err) {
                 alert("Er ging iets mis bij het lezen van het bestand. Is het een geldige JSON?");
             }
-            // Reset het input veld zodat hetzelfde bestand eventueel opnieuw gekozen kan worden
             event.target.value = '';
         };
         reader.readAsText(file);
     }
 
-    // Start applicatie
     init();
 </script>
 
