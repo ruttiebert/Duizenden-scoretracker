@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Duizenden Tracker</title>
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --primary: #007bff;
+            --accent: #28a745;
+            --danger: #dc3545;
+            --border: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #f0f0f0;
+            --primary: #3793ff;
+            --border: #444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            transition: background 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { font-size: 1.5rem; margin: 0; }
+
+        .card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .setup-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-color);
+            color: var(--text-color);
+            width: 100%;
+            font-size: 16px; /* 16px is cruciaal voor iOS: voorkomt automatisch inzoomen */
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            touch-action: manipulation; /* Voorkomt 300ms delay op touch screens */
+            font-size: 15px;
+        }
+
+        button.secondary { background: #6c757d; }
+        button.success { background: var(--accent); }
+        button.danger { background: var(--danger); }
+
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th, td {
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .total-row {
+            font-weight: bold;
+            font-size: 1.1rem;
+            background: rgba(0,0,0,0.05);
+        }
+
+        [data-theme="dark"] .total-row {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .winner-banner {
+            background: #ffc107;
+            color: #000;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            display: none;
+            font-size: 1.1rem;
+            animation: popIn 0.5s ease-out;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .hidden { display: none !important; }
+
+        /* Modal styling */
+        #scoreModal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-sizing: border-box;
+        }
+
+        #modalInputs {
+            max-height: 50vh;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .modal-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 10px;
+        }
+
+        .modal-row label {
+            font-weight: bold;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .modal-row input {
+            flex: 1;
+            max-width: 150px;
+            text-align: right;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            font-size: 0.9rem;
+            padding: 6px 12px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Duizenden</h1>
+    <button class="toggle-btn" onclick="toggleTheme()">🌙 Thema</button>
+</header>
+
+<div id="winnerDisplay" class="winner-banner"></div>
+
+<div id="setupSection" class="card">
+    <h3 style="margin-top:0;">Nieuw Spel</h3>
+    <div id="playerInputs"></div>
+    <div style="margin-top:15px; display: flex; gap: 10px;">
+        <button id="addPlayerBtn" class="secondary" style="flex:1;" onclick="addPlayer()">+ Speler</button>
+        <button class="success" style="flex:2;" onclick="startGame()">Start Spel</button>
+    </div>
+</div>
+
+<div id="gameSection" class="hidden">
+    <div class="card table-container" style="padding: 5px;">
+        <table id="scoreTable">
+            <thead><tr id="tableHeader"></tr></thead>
+            <tbody id="tableBody"></tbody>
+            <tfoot><tr id="tableFooter" class="total-row"></tr></tfoot>
+        </table>
+    </div>
+
+    <div class="controls">
+        <button onclick="showScoreModal()" class="success" style="grid-column: span 2; padding: 15px; font-size: 1.1rem;">Scores Invullen</button>
+        <button onclick="resetGame()" class="danger">Stop / Nieuw</button>
+        <div style="display: flex; gap: 5px;">
+            <button onclick="exportJSON()" class="secondary" style="flex:1; padding: 10px 5px; font-size:12px;">Exporteer</button>
+            <button onclick="document.getElementById('importFile').click()" class="secondary" style="flex:1; padding: 10px 5px; font-size:12px;">Importeer</button>
+        </div>
+    </div>
+    <input type="file" id="importFile" class="hidden" accept=".json" onchange="importJSON(event)">
+</div>
+
+<div id="scoreModal">
+    <div class="modal-content">
+        <h3 style="margin-top:0; margin-bottom:15px;">Scores van deze ronde</h3>
+        <div id="modalInputs"></div>
+        <div style="margin-top: 20px; display: flex; gap: 10px;">
+            <button onclick="saveRound()" class="success" style="flex:1">Opslaan</button>
+            <button onclick="closeModal()" class="secondary" style="flex:1">Annuleer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let players = [
+        { name: "Speler 1", scores: [] },
+        { name: "Speler 2", scores: [] }
+    ];
+    let gameActive = false;
+
+    function init() {
+        // Herstel dark/light mode
+        const savedTheme = localStorage.getItem('duizenden_theme');
+        if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+
+        // Herstel speldata
+        const savedData = localStorage.getItem('duizenden_data');
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                if (data.players && data.players.length > 0) {
+                    players = data.players;
+                    gameActive = data.gameActive;
+                    if (gameActive) {
+                        document.getElementById('setupSection').classList.add('hidden');
+                        document.getElementById('gameSection').classList.remove('hidden');
+                        renderTable();
+                        checkWinner();
+                    }
+                }
+            } catch (e) {
+                console.error("Fout bij laden lokale data", e);
+            }
+        }
+        if (!gameActive) renderSetup();
+    }
+
+    // --- SETUP LOGICA ---
+    function renderSetup() {
+        const container = document.getElementById('playerInputs');
+        container.innerHTML = '';
+        players.forEach((p, index) => {
+            container.innerHTML += `
+                <div class="setup-row">
+                    <input type="text" value="${p.name}" onchange="updateName(${index}, this.value)" placeholder="Naam speler ${index+1}">
+                    ${players.length > 2 ? `<button class="danger" style="padding:10px 12px;" onclick="removePlayer(${index})">✕</button>` : ''}
+                </div>
+            `;
+        });
+        // Maximaal 6 spelers
+        document.getElementById('addPlayerBtn').style.display = players.length >= 6 ? 'none' : 'block';
+    }
+
+    function addPlayer() {
+        if (players.length < 6) {
+            players.push({ name: `Speler ${players.length + 1}`, scores: [] });
+            renderSetup();
+        }
+    }
+
+    function removePlayer(index) {
+        players.splice(index, 1);
+        renderSetup();
+    }
+
+    function updateName(index, val) {
+        players[index].name = val.trim() || `Speler ${index + 1}`;
+    }
+
+    function startGame() {
+        gameActive = true;
+        document.getElementById('setupSection').classList.add('hidden');
+        document.getElementById('gameSection').classList.remove('hidden');
+        renderTable();
+        saveToLocal();
+    }
+
+    // --- GAME LOGICA ---
+    function renderTable() {
+        const header = document.getElementById('tableHeader');
+        const body = document.getElementById('tableBody');
+        const footer = document.getElementById('tableFooter');
+
+        header.innerHTML = '<th>R.</th>' + players.map(p => `<th>${p.name}</th>`).join('');
+        
+        const roundCount = players[0].scores.length;
+        body.innerHTML = '';
+        
+        for (let i = 0; i < roundCount; i++) {
+            let row = `<td>${i + 1}</td>`;
+            players.forEach(p => {
+                row += `<td>${p.scores[i] !== undefined ? p.scores[i] : 0}</td>`;
+            });
+            body.innerHTML += `<tr>${row}</tr>`;
+        }
+
+        let footerHtml = '<td>Tot:</td>';
+        players.forEach(p => {
+            const total = p.scores.reduce((a, b) => a + b, 0);
+            footerHtml += `<td>${total}</td>`;
+        });
+        footer.innerHTML = footerHtml;
+    }
+
+    // --- SCORE INVOER ---
+    function showScoreModal() {
+        const container = document.getElementById('modalInputs');
+        // Let op: type="number" zonder inputmode="numeric" wordt gebruikt 
+        // zodat iOS het toetsenbord met het min-teken (-) toont.
+        container.innerHTML = players.map((p, i) => `
+            <div class="modal-row">
+                <label for="input_score_${i}">${p.name}</label>
+                <input type="number" id="input_score_${i}" placeholder="0">
+            </div>
+        `).join('');
+        
+        document.getElementById('scoreModal').style.display = 'flex';
+        
+        // Focus zachtjes de eerste input (handig op sommige mobiele browsers)
+        setTimeout(() => {
+            const firstInput = document.getElementById('input_score_0');
+            if(firstInput) firstInput.focus();
+        }, 100);
+    }
+
+    function closeModal() {
+        document.getElementById('scoreModal').style.display = 'none';
+    }
+
+    function saveRound() {
+        players.forEach((p, i) => {
+            const inputVal = document.getElementById(`input_score_${i}`).value;
+            const val = parseInt(inputVal, 10);
+            p.scores.push(isNaN(val) ? 0 : val);
+        });
+        closeModal();
+        renderTable();
+        saveToLocal();
+        checkWinner();
+    }
+
+    // --- WINNAAR LOGICA ---
+    function checkWinner() {
+        const totals = players.map(p => ({
+            name: p.name,
+            total: p.scores.reduce((a, b) => a + b, 0)
+        }));
+
+        const winners = totals.filter(t => t.total >= 1000);
+        const banner = document.getElementById('winnerDisplay');
+
+        if (winners.length > 0) {
+            // Sorteer van hoogste naar laagste score
+            winners.sort((a, b) => b.total - a.total);
+            const highscore = winners[0].total;
+            
+            // Vind alle spelers die EXACT de highscore delen (bij gelijke stand boven de 1000)
+            const ultimateWinners = winners.filter(w => w.total === highscore);
+            
+            banner.style.display = 'block';
+            banner.innerHTML = `🏆 Winnaar: ${ultimateWinners.map(w => w.name).join(' & ')} (${highscore} ptn!)`;
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
+    // --- DATA BEHEER ---
+    function saveToLocal() {
+        localStorage.setItem('duizenden_data', JSON.stringify({ players, gameActive }));
+    }
+
+    function resetGame() {
+        if (confirm("Zeker weten? Alle scores van dit huidige spel worden gewist!")) {
+            localStorage.removeItem('duizenden_data');
+            location.reload();
+        }
+    }
+
+    function toggleTheme() {
+        const body = document.body;
+        const currentTheme = body.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        body.setAttribute('data-theme', newTheme);
+        localStorage.setItem('duizenden_theme', newTheme);
+    }
+
+    function exportJSON() {
+        const dataStr = JSON.stringify({ players, gameActive }, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `duizenden_scores_${new Date().toISOString().slice(0,10)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function importJSON(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.players && Array.isArray(data.players)) {
+                    players = data.players;
+                    gameActive = data.gameActive !== undefined ? data.gameActive : true;
+                    saveToLocal();
+                    location.reload();
+                } else {
+                    alert("Dit bestand bevat geen geldige Duizenden scoredata.");
+                }
+            } catch (err) {
+                alert("Er ging iets mis bij het lezen van het bestand. Is het een geldige JSON?");
+            }
+            // Reset het input veld zodat hetzelfde bestand eventueel opnieuw gekozen kan worden
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // Start applicatie
+    init();
+</script>
+
+</body>
+</html>
